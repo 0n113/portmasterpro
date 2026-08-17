@@ -37,23 +37,12 @@ import (
 	"github.com/safing/portmaster/service/resolver"
 	"github.com/safing/portmaster/service/splittun"
 	"github.com/safing/portmaster/service/status"
-	"github.com/safing/portmaster/service/sync"
 	"github.com/safing/portmaster/service/ui"
 	"github.com/safing/portmaster/service/updates"
-	"github.com/safing/portmaster/spn/access"
-	"github.com/safing/portmaster/spn/cabin"
-	"github.com/safing/portmaster/spn/captain"
-	"github.com/safing/portmaster/spn/crew"
-	"github.com/safing/portmaster/spn/docks"
-	"github.com/safing/portmaster/spn/hub"
-	"github.com/safing/portmaster/spn/navigator"
-	"github.com/safing/portmaster/spn/patrol"
-	"github.com/safing/portmaster/spn/ships"
-	"github.com/safing/portmaster/spn/sluice"
-	"github.com/safing/portmaster/spn/terminal"
 )
 
 // Instance is an instance of a Portmaster service.
+// SPN, account access, and telemetry/sync modules have been removed.
 type Instance struct {
 	ctx       context.Context
 	cancelCtx context.CancelFunc
@@ -99,25 +88,10 @@ type Instance struct {
 	nameserver    *nameserver.NameServer
 	process       *process.ProcessModule
 	resolver      *resolver.ResolverModule
-	sync          *sync.Sync
 	control       *control.Control
 	interop       *interop.Interoperability
 
 	splittun *splittun.SplitTunModule
-
-	access *access.Access
-
-	// SPN modules
-	SpnGroup  *mgr.ExtendedGroup
-	cabin     *cabin.Cabin
-	navigator *navigator.Navigator
-	captain   *captain.Captain
-	crew      *crew.Crew
-	docks     *docks.Docks
-	patrol    *patrol.Patrol
-	ships     *ships.Ships
-	sluice    *sluice.SluiceModule
-	terminal  *terminal.TerminalModule
 
 	CommandLineOperation func() error
 	ShouldRestart        bool
@@ -244,7 +218,6 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 	if err != nil {
 		return instance, fmt.Errorf("create customlist module: %w", err)
 	}
-
 	instance.status, err = status.New(instance)
 	if err != nil {
 		return instance, fmt.Errorf("create status module: %w", err)
@@ -269,10 +242,6 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 	if err != nil {
 		return instance, fmt.Errorf("create resolver module: %w", err)
 	}
-	instance.sync, err = sync.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create sync module: %w", err)
-	}
 	instance.control, err = control.New(instance)
 	if err != nil {
 		return instance, fmt.Errorf("create control module: %w", err)
@@ -281,52 +250,9 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 	if err != nil {
 		return instance, fmt.Errorf("create interop module: %w", err)
 	}
-	instance.access, err = access.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create access module: %w", err)
-	}
-
 	instance.splittun, err = splittun.New(instance)
 	if err != nil {
 		return instance, fmt.Errorf("create splittun module: %w", err)
-	}
-
-	// SPN modules
-	instance.cabin, err = cabin.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create cabin module: %w", err)
-	}
-	instance.navigator, err = navigator.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create navigator module: %w", err)
-	}
-	instance.captain, err = captain.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create captain module: %w", err)
-	}
-	instance.crew, err = crew.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create crew module: %w", err)
-	}
-	instance.docks, err = docks.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create docks module: %w", err)
-	}
-	instance.patrol, err = patrol.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create patrol module: %w", err)
-	}
-	instance.ships, err = ships.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create ships module: %w", err)
-	}
-	instance.sluice, err = sluice.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create sluice module: %w", err)
-	}
-	instance.terminal, err = terminal.New(instance)
-	if err != nil {
-		return instance, fmt.Errorf("create terminal module: %w", err)
 	}
 
 	// Grouped interception modules that can be paused/resumed together.
@@ -365,7 +291,7 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 
 		instance.splittun,
 
-		instance.interop, // required to start before interception
+		instance.interop,
 
 		// Grouped pausable interception modules:
 		// 		instance.interception,
@@ -375,24 +301,8 @@ func New(svcCfg *ServiceConfig) (*Instance, error) { //nolint:maintidx
 
 		instance.status,
 		instance.broadcasts,
-		instance.sync,
 		instance.ui,
 		instance.control,
-
-		instance.access,
-	)
-
-	// SPN Group
-	instance.SpnGroup = mgr.NewExtendedGroup(
-		instance.cabin,
-		instance.navigator,
-		instance.captain,
-		instance.crew,
-		instance.docks,
-		instance.patrol,
-		instance.ships,
-		instance.sluice,
-		instance.terminal,
 	)
 
 	return instance, nil
@@ -410,21 +320,14 @@ func (i *Instance) SetSleep(enabled bool) {
 			sm.SetSleep(enabled)
 		}
 	}
-	for _, module := range i.SpnGroup.Modules() {
-		if sm, ok := module.(SleepyModule); ok {
-			sm.SetSleep(enabled)
-		}
-	}
 }
 
 // BinDir returns the directory for binaries.
-// This directory may be read-only.
 func (i *Instance) BinDir() string {
 	return i.binDir
 }
 
 // DataDir returns the directory for variable data.
-// This directory is expected to be read/writeable.
 func (i *Instance) DataDir() string {
 	return i.dataDir
 }
@@ -501,56 +404,6 @@ func (i *Instance) GeoIP() *geoip.GeoIP {
 // NetEnv returns the netenv module.
 func (i *Instance) NetEnv() *netenv.NetEnv {
 	return i.netenv
-}
-
-// Access returns the access module.
-func (i *Instance) Access() *access.Access {
-	return i.access
-}
-
-// Cabin returns the cabin module.
-func (i *Instance) Cabin() *cabin.Cabin {
-	return i.cabin
-}
-
-// Captain returns the captain module.
-func (i *Instance) Captain() *captain.Captain {
-	return i.captain
-}
-
-// Crew returns the crew module.
-func (i *Instance) Crew() *crew.Crew {
-	return i.crew
-}
-
-// Docks returns the crew module.
-func (i *Instance) Docks() *docks.Docks {
-	return i.docks
-}
-
-// Navigator returns the navigator module.
-func (i *Instance) Navigator() *navigator.Navigator {
-	return i.navigator
-}
-
-// Patrol returns the patrol module.
-func (i *Instance) Patrol() *patrol.Patrol {
-	return i.patrol
-}
-
-// Ships returns the ships module.
-func (i *Instance) Ships() *ships.Ships {
-	return i.ships
-}
-
-// Sluice returns the ships module.
-func (i *Instance) Sluice() *sluice.SluiceModule {
-	return i.sluice
-}
-
-// Terminal returns the terminal module.
-func (i *Instance) Terminal() *terminal.TerminalModule {
-	return i.terminal
 }
 
 // UI returns the ui module.
@@ -633,56 +486,26 @@ func (i *Instance) Resolver() *resolver.ResolverModule {
 	return i.resolver
 }
 
-// Sync returns the sync module.
-func (i *Instance) Sync() *sync.Sync {
-	return i.sync
-}
-
 // Core returns the core module.
 func (i *Instance) Core() *core.Core {
 	return i.core
 }
 
-// SPNGroup returns the group of all SPN modules.
-func (i *Instance) SPNGroup() *mgr.ExtendedGroup {
-	return i.SpnGroup
-}
-
-// Events
-
-// GetEventSPNConnected return the event manager for the SPN connected event.
-func (i *Instance) GetEventSPNConnected() *mgr.EventMgr[struct{}] {
-	return i.captain.EventSPNConnected
-}
-
-func (i *Instance) GetHookSPNConnecting() *mgr.HookMgr[hub.Announcement] {
-	return i.captain.HookSPNConnecting
-}
-
 // Special functions
 
-// SetCmdLineOperation sets a command line operation to be executed instead of starting the system. This is useful when functions need all modules to be prepared for a special operation.
+// SetCmdLineOperation sets a command line operation to be executed instead of starting the system.
 func (i *Instance) SetCmdLineOperation(f func() error) {
 	i.CommandLineOperation = f
 }
 
 // GetStates returns the current states of all group modules.
 func (i *Instance) GetStates() []mgr.StateUpdate {
-	mainStates := i.serviceGroup.GetStates()
-	spnStates := i.SpnGroup.GetStates()
-
-	updates := make([]mgr.StateUpdate, 0, len(mainStates)+len(spnStates))
-	updates = append(updates, mainStates...)
-	updates = append(updates, spnStates...)
-
-	return updates
+	return i.serviceGroup.GetStates()
 }
 
-// AddStatesCallback adds the given callback function to all group modules that
-// expose a state manager at States().
+// AddStatesCallback adds the given callback function to all group modules.
 func (i *Instance) AddStatesCallback(callbackName string, callback mgr.EventCallbackFunc[mgr.StateUpdate]) {
 	i.serviceGroup.AddStatesCallback(callbackName, callback)
-	i.SpnGroup.AddStatesCallback(callbackName, callback)
 }
 
 // Ready returns whether all modules in the main service module group have been started and are still running.
@@ -700,58 +523,41 @@ func (i *Instance) Stop() error {
 	return i.serviceGroup.Stop()
 }
 
-// RestartExitCode will instruct portmaster-start to restart the process immediately, potentially with a new version.
+// RestartExitCode will instruct portmaster-start to restart the process immediately.
 const RestartExitCode = 23
 
 // Restart asynchronously restarts the instance.
-// This only works if the underlying system/process supports this.
 func (i *Instance) Restart() {
-	// Send a restart event, give it 10ms extra to propagate.
 	i.core.EventRestart.Submit(struct{}{})
 	time.Sleep(10 * time.Millisecond)
-
-	// Set the restart flag and shutdown.
 	i.ShouldRestart = true
 	i.shutdown(RestartExitCode)
 }
 
 // Shutdown asynchronously stops the instance.
 func (i *Instance) Shutdown() {
-	// Send a shutdown event, give it 10ms extra to propagate.
 	i.core.EventShutdown.Submit(struct{}{})
 	time.Sleep(10 * time.Millisecond)
-
 	i.shutdown(0)
 }
 
 func (i *Instance) shutdown(exitCode int) {
-	// Only shutdown once.
 	if i.IsShuttingDown() {
 		return
 	}
-
-	// Cancel main  context.
 	i.cancelCtx()
-
-	// Set given exit code.
 	i.exitCode.Store(int32(exitCode))
-
-	// Start shutdown asynchronously in a separate manager.
 	m := mgr.New("instance")
 	m.Go("shutdown", func(w *mgr.WorkerCtx) error {
-		// Stop all modules.
 		if err := i.Stop(); err != nil {
 			w.Error("failed to shutdown", "err", err)
 		}
-
-		// Cancel shutdown process context.
 		i.cancelShutdownCtx()
 		return nil
 	})
 }
 
 // Ctx returns the instance context.
-// It is canceled when shutdown is started.
 func (i *Instance) Ctx() context.Context {
 	return i.ctx
 }
@@ -767,7 +573,6 @@ func (i *Instance) ShuttingDown() <-chan struct{} {
 }
 
 // ShutdownCtx returns the instance shutdown context.
-// It is canceled when shutdown is complete.
 func (i *Instance) ShutdownCtx() context.Context {
 	return i.shutdownCtx
 }
@@ -777,7 +582,7 @@ func (i *Instance) IsShutDown() bool {
 	return i.shutdownCtx.Err() != nil
 }
 
-// ShutDownComplete returns a channel that is triggered when the instance has shut down.
+// ShutdownComplete returns a channel that is triggered when the instance has shut down.
 func (i *Instance) ShutdownComplete() <-chan struct{} {
 	return i.shutdownCtx.Done()
 }
