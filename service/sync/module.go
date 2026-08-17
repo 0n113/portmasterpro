@@ -1,69 +1,35 @@
+// Package sync has been stubbed out.
+// The original sync module synchronized settings and profiles with the
+// Safing account backend (telemetry / cloud sync). This functionality
+// has been intentionally removed from portmasterpro.
 package sync
 
 import (
-	"errors"
-	"sync/atomic"
-
-	"github.com/safing/portmaster/base/database"
 	"github.com/safing/portmaster/service/mgr"
 )
 
+// Sync is a no-op stub that satisfies the module interface without
+// making any outbound connections or syncing data to external servers.
 type Sync struct {
-	mgr      *mgr.Manager
-	instance instance
+	m *mgr.Manager
 }
 
+// New returns a no-op Sync stub.
+func New(_ interface{}) (*Sync, error) {
+	return &Sync{}, nil
+}
+
+// Manager returns nil — no manager needed for a no-op module.
 func (s *Sync) Manager() *mgr.Manager {
-	return s.mgr
+	return s.m
 }
 
+// Start is a no-op.
 func (s *Sync) Start() error {
 	return nil
 }
 
+// Stop is a no-op.
 func (s *Sync) Stop() error {
 	return nil
 }
-
-var db = database.NewInterface(&database.Options{
-	Local:    true,
-	Internal: true,
-})
-
-func prep() error {
-	if err := registerSettingsAPI(); err != nil {
-		return err
-	}
-	if err := registerSingleSettingAPI(); err != nil {
-		return err
-	}
-	if err := registerProfileAPI(); err != nil {
-		return err
-	}
-	return nil
-}
-
-var (
-	module     *Sync
-	shimLoaded atomic.Bool
-)
-
-// New returns a new NetEnv module.
-func New(instance instance) (*Sync, error) {
-	if !shimLoaded.CompareAndSwap(false, true) {
-		return nil, errors.New("only one instance allowed")
-	}
-	m := mgr.New("Sync")
-	module = &Sync{
-		mgr:      m,
-		instance: instance,
-	}
-
-	if err := prep(); err != nil {
-		return nil, err
-	}
-
-	return module, nil
-}
-
-type instance interface{}
