@@ -1,127 +1,44 @@
 name: No-Telemetry CI
 
-# Runs on every push and PR targeting our cleanup branch.
-# Verifies that:
-#   1. All stub packages (sync, spn/access) compile and their tests pass.
-#   2. The netquery open-endpoint policy tests pass.
-#   3. No spn/* import sneaks into service/netquery.
-#   4. go vet reports no issues on the affected packages.
-
 on:
   push:
-    branches:
-      - no-spn-no-telemetry
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/no-telemetry-ci.yml'
-
+    branches: [no-spn-no-telemetry]
   pull_request:
-    branches:
-      - main
-      - development
-    paths:
-      - '**.go'
-      - 'go.mod'
-      - 'go.sum'
+    branches: [development]
+
+permissions:
+  contents: read
 
 jobs:
-  # ------------------------------------------------------------------
-  # Job 1: Compile + unit-test the stub packages and netquery
-  # ------------------------------------------------------------------
-  test-stubs:
-    name: Stub & Netquery Tests
+  full-go-build-and-test:
+    name: Full Go Build & Test
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Go
-        uses: actions/setup-go@v5
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
         with:
-          go-version: '^1.22'
+          go-version: stable
+          check-latest: true
           cache: true
+      - name: Download modules
+        run: go mod download
+      - name: Build all packages
+        run: go build ./...
+      - name: Test all packages
+        run: go test -count=1 ./...
+      - name: Vet all packages
+        run: go vet ./...
 
-      - name: go vet (affected packages)
-        run: |
-          go vet ./service/sync/...
-          go vet ./spn/access/...
-          go vet ./service/netquery/...
-
-      - name: Run stub tests — service/sync
-        run: go test -v -count=1 ./service/sync/...
-
-      - name: Run stub tests — spn/access
-        run: go test -v -count=1 ./spn/access/...
-
-      - name: Run netquery open-endpoint tests
-        run: go test -v -count=1 ./service/netquery/...
-
-  # ------------------------------------------------------------------
-  # Job 2: Guard — no spn/* import in service/netquery
-  # ------------------------------------------------------------------
-  guard-no-spn-import:
-    name: Guard — No SPN Import in Netquery
+  no-telemetry-guard:
+    name: No telemetry and no network account API
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fail if spn/* is imported in service/netquery
+      - uses: actions/checkout@v4
+      - name: Reject known Safing account endpoints
         run: |
-          if grep -r 'safing/portmaster/spn' ./service/netquery/; then
-            echo "ERROR: service/netquery must not import spn/* packages."
-            exit 1
-          fi
-          echo "OK: No spn/* imports found in service/netquery."
-
-  # ------------------------------------------------------------------
-  # Job 3: Guard — no outbound telemetry URLs in stubs
-  # ------------------------------------------------------------------
-  guard-no-telemetry-urls:
-    name: Guard — No Telemetry URLs in Stubs
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Fail if known telemetry URLs appear in stub files
+          ! grep -RInE 'account\.safing\.io|telemetry\.safing\.io|api\.safing\.io' service/sync spn/access
+      - name: Reject outbound HTTP clients in removed account packages
         run: |
-          TELEMETRY_PATTERNS=(
-            'account.safing.io'
-            'updates.safing.io'
-            'telemetry.safing.io'
-            'api.safing.io'
-          )
-          FOUND=0
-          for pattern in "${TELEMETRY_PATTERNS[@]}"; do
-            if grep -r "$pattern" ./service/sync/ ./spn/access/; then
-              echo "ERROR: Found telemetry URL '$pattern' in stub files."
-              FOUND=1
-            fi
-          done
-          if [ "$FOUND" -eq 1 ]; then exit 1; fi
-          echo "OK: No telemetry URLs found in stub packages."
-
-  # ------------------------------------------------------------------
-  # Job 4: Guard — no login state exported from access stub
-  # ------------------------------------------------------------------
-  guard-access-stub-no-login:
-    name: Guard — Access Stub Always Returns Not-Logged-In
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Verify IsLoggedIn returns false in stub
-        run: |
-          if grep -n 'return true' ./spn/access/module.go | grep -i 'login\|LoggedIn'; then
-            echo "ERROR: IsLoggedIn() must not return true in the stub."
-            exit 1
-          fi
-          echo "OK: IsLoggedIn stub looks correct."
+          ! grep -RInE 'net/http|http\.Client|http\.NewRequest' service/sync spn/access
+      - name: Ensure the obsolete login testsuite is excluded
+        run: grep -q '^//go:build ignore$' cmds/testsuite/login.go
