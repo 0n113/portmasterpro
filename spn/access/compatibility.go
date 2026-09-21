@@ -23,7 +23,7 @@ func InitializeZones() error { return nil }
 func GetUser() (*UserRecord, error) { return nil, ErrNotLoggedIn }
 
 // Login never performs authentication or network I/O.
-func Login(_ string, _string) (*UserRecord, error) { return nil, ErrNotLoggedIn }
+func Login(_ string, _ string) (*UserRecord, error) { return nil, ErrNotLoggedIn }
 
 // UpdateUser never stores account information.
 func UpdateUser(_ *UserRecord) error { return ErrNotLoggedIn }
