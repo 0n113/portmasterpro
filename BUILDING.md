@@ -171,62 +171,45 @@ echo "Exit $?: 0 = sauber"
 
 ---
 
-## 6 · Desktop-Frontend testen (TypeScript / Vitest)
+## 6 · Desktop-Frontend bauen (Angular 16, Node 20)
 
-> **Stand:** Das produktive UI ist die Angular-App unter `desktop/angular`
-> (`npm ci && npm run build`, Tests via `npm test` / Karma). Der Shim
-> `desktop/src/lib/spn-removed.ts` ist dort **noch nicht eingebunden**; die
-> Bereinigung der Account-/SPN-Ansichten im Angular-UI ist Phase 2 nach dem
-> grünen Go-Build. Die folgenden Vitest-Schritte betreffen nur den Shim selbst.
+Das produktive UI ist die Angular-App unter `desktop/angular`. Die gesamte
+Account-/SPN-Logik ist zentral in `projects/safing/portmaster-api/src/lib/spn.service.ts`
+neutralisiert (statisches lokales Profil, SPN dauerhaft `disabled`, keine HTTP-
+Aufrufe an Account-Endpunkte). Details: `desktop/CHANGES.md`.
 
 ```bash
-cd desktop
+cd desktop/angular
 
-# Abhängigkeiten installieren
-pnpm install        # oder: npm install
+# Abhängigkeiten exakt nach package-lock.json installieren
+npm ci --no-audit --no-fund
 
-# Nur die SPN-Shim-Tests laufen lassen
-pnpm vitest run src/lib/spn-removed.spec.ts
-
-# Oder alle Frontend-Tests
-pnpm test
+# Bibliotheken (@safing/ui, @safing/portmaster-api) + App als Production-Build
+npm run build
 ```
 
-### Erwartete Ausgabe
-
-```
-✓ SPN/account removal shim > SPN_REMOVED flag is true
-✓ SPN/account removal shim > isLoggedIn() always returns false
-✓ SPN/account removal shim > isSPNActive() always returns false
-✓ SPN/account removal shim > hasFeature() always returns true for any feature string
-✓ SPN/account removal shim > hasFeature() returns true even for empty string
-
-Test Files  1 passed (1)
-Tests       5 passed (5)
-```
+Erwartung: Exit-Code 0. Upstream-Warnungen zu CommonJS-Abhängigkeiten
+(`js-yaml-loader`, `data-urls`) und zum überschrittenen Bundle-Budget sind
+bekannt und unkritisch.
 
 ---
 
-## 7 · Verbleibende SPN-Referenzen im Frontend finden
-
-Nach dem Build alle Stellen suchen die noch auf alten SPN/Login-Code zeigen:
+## 7 · Frontend-Guards
 
 ```bash
-grep -rn 'spn\|SPN\|loginModal\|isLoggedIn\|isSPNActive\|hasFeature' \
-  desktop/src \
-  --include='*.ts' \
-  --include='*.svelte' \
-  --include='*.vue' \
-  --include='*.tsx' \
-  --exclude='spn-removed*'
+cd desktop/angular
+
+# API-Bibliothek darf keine Account-Endpunkte mehr ansprechen (keine Ausgabe erwartet):
+grep -rnE 'v1/spn/account|v1/account/features|account\.safing\.io|core:spn/account' \
+  projects/safing/portmaster-api/src
+
+# Production-Bundle darf keine Account-API-Aufrufe enthalten (keine Ausgabe erwartet):
+grep -lE 'v1/spn/account|v1/account/features' dist/*.js
 ```
 
-Jeden Treffer durch den entsprechenden Import aus
-`desktop/src/lib/spn-removed.ts` ersetzen:
-
-```ts
-import { hasFeature, isLoggedIn, isSPNActive } from '$lib/spn-removed';
-```
+Verbleibende `account.safing.io`-Strings im Bundle stammen aus nicht mehr
+gerenderten Komponenten (`spn-login`, `spn-account-details`); sie lösen keine
+Requests aus.
 
 ---
 
