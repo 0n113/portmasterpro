@@ -12,7 +12,8 @@ import (
 func TestSoftwareUpdatesDefaultOff(t *testing.T) {
 	t.Parallel()
 
-	if err := registerUpdateConfig(); err != nil {
+	err := registerUpdateConfig()
+	if err != nil {
 		t.Fatalf("registerUpdateConfig: %v", err)
 	}
 

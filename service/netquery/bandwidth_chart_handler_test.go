@@ -26,8 +26,9 @@ func TestBandwidthChartHandlerRejectsInvalidJSON(t *testing.T) {
 	// minimal inline handler that mirrors the expected contract: parse JSON
 	// body, return 400 on error, never 401/403.
 	inlineHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		var body map[string]any
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
 			http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -55,8 +56,9 @@ func TestBandwidthChartHandlerAcceptsEmptyQuery(t *testing.T) {
 	rec := httptest.NewRecorder()
 
 	inlineHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var body map[string]interface{}
-		if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		var body map[string]any
+		err := json.NewDecoder(r.Body).Decode(&body)
+		if err != nil {
 			http.Error(w, "bad request", http.StatusBadRequest)
 			return
 		}

@@ -8,20 +8,24 @@ import (
 
 // TestAccessStubNoOp verifies the access stub starts and stops cleanly.
 func TestAccessStubNoOp(t *testing.T) {
+	t.Parallel()
 	a, err := access.New(nil)
 	if err != nil {
 		t.Fatalf("access.New() returned unexpected error: %v", err)
 	}
-	if err := a.Start(); err != nil {
+	err = a.Start()
+	if err != nil {
 		t.Fatalf("Access.Start() returned unexpected error: %v", err)
 	}
-	if err := a.Stop(); err != nil {
+	err = a.Stop()
+	if err != nil {
 		t.Fatalf("Access.Stop() returned unexpected error: %v", err)
 	}
 }
 
 // TestAccessStubNotLoggedIn verifies no account session is present.
 func TestAccessStubNotLoggedIn(t *testing.T) {
+	t.Parallel()
 	a, err := access.New(nil)
 	if err != nil {
 		t.Fatalf("access.New() returned unexpected error: %v", err)
@@ -33,6 +37,7 @@ func TestAccessStubNotLoggedIn(t *testing.T) {
 
 // TestAccessStubAllFeaturesUnlocked verifies all features are available without a subscription.
 func TestAccessStubAllFeaturesUnlocked(t *testing.T) {
+	t.Parallel()
 	a, err := access.New(nil)
 	if err != nil {
 		t.Fatalf("access.New() returned unexpected error: %v", err)
@@ -47,6 +52,7 @@ func TestAccessStubAllFeaturesUnlocked(t *testing.T) {
 
 // TestAccessStubManagerIsNil verifies no background workers are spawned.
 func TestAccessStubManagerIsNil(t *testing.T) {
+	t.Parallel()
 	a, err := access.New(nil)
 	if err != nil {
 		t.Fatalf("access.New() returned unexpected error: %v", err)

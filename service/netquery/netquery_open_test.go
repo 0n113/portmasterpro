@@ -16,9 +16,9 @@ import (
 // ---------------------------------------------------------------------------
 
 const (
-	endpointQuery         = "netquery/query"
-	endpointQueryBatch    = "netquery/query/batch"
-	endpointChartActive   = "netquery/charts/connection-active"
+	endpointQuery          = "netquery/query"
+	endpointQueryBatch     = "netquery/query/batch"
+	endpointChartActive    = "netquery/charts/connection-active"
 	endpointChartBandwidth = "netquery/charts/bandwidth"
 	endpointHistoryClear   = "netquery/history/clear"
 	endpointHistoryCleanup = "netquery/history/cleanup"
@@ -56,7 +56,7 @@ func TestBandwidthEndpointIsNotGated(t *testing.T) {
 	// through any SPN or account sub-path.
 	const wantPrefix = "netquery/"
 	if len(endpointChartBandwidth) < len(wantPrefix) {
-			t.Fatalf("bandwidth endpoint %q does not start with %q", endpointChartBandwidth, wantPrefix)
+		t.Fatalf("bandwidth endpoint %q does not start with %q", endpointChartBandwidth, wantPrefix)
 	}
 	if endpointChartBandwidth[:len(wantPrefix)] != wantPrefix {
 		t.Errorf("bandwidth endpoint %q must be under netquery/, got different prefix", endpointChartBandwidth)
@@ -74,7 +74,6 @@ func TestNetworkHistoryEndpointsAreNotGated(t *testing.T) {
 	}
 
 	for _, ep := range historyEndpoints {
-		ep := ep
 		t.Run(ep, func(t *testing.T) {
 			t.Parallel()
 			if ep == "" {
@@ -85,7 +84,7 @@ func TestNetworkHistoryEndpointsAreNotGated(t *testing.T) {
 			if len(ep) < len(wantPrefix) || ep[:len(wantPrefix)] != wantPrefix {
 				t.Errorf("history endpoint %q must be under netquery/history/, got wrong path", ep)
 			}
-		}	)
+		})
 	}
 }
 
@@ -95,8 +94,10 @@ func TestNetworkHistoryEndpointsAreNotGated(t *testing.T) {
 // surfaces the requirement in CI output and code review.
 //
 // To enforce this mechanically, add this to your Makefile or CI:
-//   grep -r '"github.com/safing/portmaster/spn' ./service/netquery/ && exit 1 || exit 0
+//
+//	grep -r '"github.com/safing/portmaster/spn' ./service/netquery/ && exit 1 || exit 0
 func TestNoSPNImportInNetquery(t *testing.T) {
+	t.Parallel()
 	t.Log("Design intent: service/netquery must not import spn/* packages.")
 	t.Log("Enforce with: grep -r 'safing/portmaster/spn' ./service/netquery/ (should produce no output).")
 }

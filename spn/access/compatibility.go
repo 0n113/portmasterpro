@@ -5,6 +5,7 @@
 // backend so that the remaining SPN packages still compile. The SPN module is
 // never started in portmasterpro. Every symbol here is local, side-effect free
 // and performs no network, token, account, persistence or telemetry I/O.
+
 package access
 
 import (

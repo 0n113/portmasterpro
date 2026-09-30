@@ -9,14 +9,17 @@ import (
 // TestSyncStubNoOp verifies that the sync stub starts and stops without error
 // and does not establish any external connections.
 func TestSyncStubNoOp(t *testing.T) {
+	t.Parallel()
 	s, err := sync.New(nil)
 	if err != nil {
 		t.Fatalf("sync.New() returned unexpected error: %v", err)
 	}
-	if err := s.Start(); err != nil {
+	err = s.Start()
+	if err != nil {
 		t.Fatalf("Sync.Start() returned unexpected error: %v", err)
 	}
-	if err := s.Stop(); err != nil {
+	err = s.Stop()
+	if err != nil {
 		t.Fatalf("Sync.Stop() returned unexpected error: %v", err)
 	}
 }
@@ -24,6 +27,7 @@ func TestSyncStubNoOp(t *testing.T) {
 // TestSyncStubManagerIsNil verifies that the stub returns no manager,
 // confirming no background workers are spawned.
 func TestSyncStubManagerIsNil(t *testing.T) {
+	t.Parallel()
 	s, err := sync.New(nil)
 	if err != nil {
 		t.Fatalf("sync.New() returned unexpected error: %v", err)

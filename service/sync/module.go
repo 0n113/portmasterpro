@@ -15,7 +15,7 @@ type Sync struct {
 }
 
 // New returns a no-op Sync stub.
-func New(_ interface{}) (*Sync, error) {
+func New(_ any) (*Sync, error) {
 	return &Sync{}, nil
 }
 

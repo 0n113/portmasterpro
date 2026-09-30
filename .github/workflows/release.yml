@@ -28,7 +28,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build all artifacts
-      run: earthly --remote-cache=ghcr.io/safing/build-cache --push +release-prep
+      run: earthly +release-prep
 
     - name: Upload Dist
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -56,7 +56,7 @@ jobs:
         password: ${{ secrets.GITHUB_TOKEN }}
 
     - name: Build linux installers
-      run: earthly --ci --remote-cache=ghcr.io/safing/build-cache --push +installer-linux
+      run: earthly --ci +installer-linux
       # --ci include --no-output flag
 
     - name: Upload Installers

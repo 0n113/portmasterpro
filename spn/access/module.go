@@ -15,7 +15,7 @@ type Access struct {
 }
 
 // New returns a no-op Access stub.
-func New(_ interface{}) (*Access, error) {
+func New(_ any) (*Access, error) {
 	return &Access{}, nil
 }
 
