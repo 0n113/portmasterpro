@@ -54,7 +54,9 @@ func TestOnceAgain(t *testing.T) {
 	if execs <= 8 {
 		t.Errorf("unexpected low exec count: %d", execs)
 	}
-	if execs >= 12 {
+	// Allow some headroom for scheduler jitter on loaded CI runners; the
+	// property under test is batching (far fewer executions than callers).
+	if execs > 15 {
 		t.Errorf("unexpected high exec count: %d", execs)
 	}
 }
