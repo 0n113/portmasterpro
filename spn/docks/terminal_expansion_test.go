@@ -19,6 +19,8 @@ import (
 const defaultTestQueueSize = 200
 
 func TestExpansion(t *testing.T) {
+	t.Skip("SPN access tokens have been removed from portmasterpro; terminal expansion cannot authorize")
+
 	t.Parallel()
 
 	// Test without and with encryption.

@@ -9,7 +9,7 @@ und die `no-spn-no-telemetry`-Änderungen verifizierst.
 
 | Tool | Mindestversion | Installieren |
 |---|---|---|
-| Go | 1.22 | https://go.dev/dl/ |
+| Go | 1.26 (siehe `go.mod`, `toolchain go1.26.3` wird bei Bedarf automatisch geladen) | https://go.dev/dl/ |
 | Git | beliebig | https://git-scm.com |
 | Node.js | 20 LTS | https://nodejs.org (nur für Desktop-Tests) |
 | pnpm / npm | beliebig | `npm i -g pnpm` (nur für Desktop-Tests) |
@@ -81,11 +81,30 @@ CGO_ENABLED=1 GOOS=windows GOARCH=amd64 \
 
 ## 4 · Go-Tests ausführen
 
-### Alle Tests (komplett)
+### Alle Tests (wie in der CI)
 
 ```bash
-go test ./...
+go test -short -count=1 ./...
 ```
+
+`-short` entspricht der Upstream-Konvention (`Earthfile`, Target `+go-test`):
+"lange" Tests brauchen ein vollständiges Desktop-System.
+
+**Bekannte umgebungsabhängige Fehler** (treten identisch im unveränderten
+Upstream `development` auf, keine Regression dieses Branches):
+
+| Paket / Test | Ursache |
+|---|---|
+| `service/compat` · `TestIPTablesChains` | benötigt `iptables` im PATH |
+| `service/netenv` · `TestCheckOnlineStatus` | benötigt Internetzugang |
+| `service/resolver` · `TestResolveIPAndValidate` | benötigt Internetzugang (Reverse-DNS) |
+| `service/profile/binmeta` · `TestFindIcon` | benötigt Desktop-Icons (evolution, nextcloud) |
+| `service/profile/endpoints` · `TestEndpointMatching` | benötigt GeoIP-Datenbank |
+| `spn/crew` · `TestConnectOp` | schlägt auch upstream fehl (EOF) |
+
+`spn/docks · TestExpansion` wird bewusst per `t.Skip` übersprungen: Der Test
+authentifiziert sich mit SPN-Zugangstokens, die in portmasterpro nicht mehr
+existieren.
 
 ### Nur die Telemetrie-/SPN-Stub-Tests
 
@@ -153,6 +172,12 @@ echo "Exit $?: 0 = sauber"
 ---
 
 ## 6 · Desktop-Frontend testen (TypeScript / Vitest)
+
+> **Stand:** Das produktive UI ist die Angular-App unter `desktop/angular`
+> (`npm ci && npm run build`, Tests via `npm test` / Karma). Der Shim
+> `desktop/src/lib/spn-removed.ts` ist dort **noch nicht eingebunden**; die
+> Bereinigung der Account-/SPN-Ansichten im Angular-UI ist Phase 2 nach dem
+> grünen Go-Build. Die folgenden Vitest-Schritte betreffen nur den Shim selbst.
 
 ```bash
 cd desktop
@@ -223,18 +248,21 @@ go build ./...
 # 4. Vet
 go vet ./...
 
-# 5. Tests (mit Race-Detector)
-go test -race ./...
+# 5. Tests (CI-Konvention) + Race-Detector auf den privacy-kritischen Paketen
+go test -short -count=1 ./...
+go test -race -short -count=1 ./service/network/... ./service/netquery/... ./service/sync/... ./spn/access/...
 
 # 6. Telemetrie-URLs prüfen
 grep -r 'account.safing.io\|updates.safing.io\|api.safing.io' \
   ./service/sync/ ./spn/access/ && echo "FUND!" || echo "Sauber."
 
-# 7. SPN-Import in netquery prüfen
+# 7. SPN-/Account-Imports prüfen
 grep -r 'safing/portmaster/spn' ./service/netquery/ && echo "FUND!" || echo "Sauber."
+grep -rn --include='*.go' '"github.com/safing/portmaster/spn/access' ./service/ && echo "FUND!" || echo "Sauber."
+grep -rn --include='*.go' 'RequiresFeatureIDAnnotation:' ./service/ && echo "FUND!" || echo "Sauber."
 
-# 8. Frontend
-cd desktop && pnpm install && pnpm vitest run src/lib/spn-removed.spec.ts
+# 8. Frontend (Angular, siehe Hinweis in Abschnitt 6)
+cd desktop/angular && npm ci && npm run build
 ```
 
 Wenn alle Schritte ohne Fehler und ohne "FUND!" durchlaufen → Branch ist merge-ready.

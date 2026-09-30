@@ -2,7 +2,7 @@ name: No-Telemetry CI
 
 on:
   push:
-    branches: [no-spn-no-telemetry]
+    branches: [no-spn-no-telemetry, 'release-candidate/**']
   pull_request:
     branches: [development]
 
@@ -17,17 +17,25 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
         with:
-          go-version: stable
+          go-version-file: go.mod
           check-latest: true
           cache: true
       - name: Download modules
         run: go mod download
+      - name: Verify go.mod / go.sum are tidy
+        run: |
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
       - name: Build all packages
         run: go build ./...
-      - name: Test all packages
-        run: go test -count=1 ./...
       - name: Vet all packages
         run: go vet ./...
+      # Upstream also runs the suite with -short (see Earthfile +go-test):
+      # "long" tests require a full desktop system.
+      - name: Test all packages
+        run: go test -short -count=1 ./...
+      - name: Race check on privacy-critical packages
+        run: go test -race -short -count=1 ./service/network/... ./service/netquery/... ./service/sync/... ./spn/access/...
 
   no-telemetry-guard:
     name: No telemetry and no network account API
@@ -40,5 +48,11 @@ jobs:
       - name: Reject outbound HTTP clients in removed account packages
         run: |
           ! grep -RInE 'net/http|http\.Client|http\.NewRequest' service/sync spn/access
+      - name: Reject spn/access imports anywhere in service/
+        run: |
+          ! grep -RIn --include='*.go' '"github.com/safing/portmaster/spn/access' service
+      - name: Reject subscription gating of settings
+        run: |
+          ! grep -RIn --include='*.go' 'RequiresFeatureIDAnnotation:' service
       - name: Ensure the obsolete login testsuite is excluded
         run: grep -q '^//go:build ignore$' cmds/testsuite/login.go

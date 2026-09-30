@@ -70,7 +70,6 @@ require (
 	golang.org/x/net v0.58.0
 	golang.org/x/sync v0.22.0
 	golang.org/x/sys v0.47.0
-	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.40.1
 	zombiezen.com/go/sqlite v1.4.2
 )
@@ -80,6 +79,7 @@ require (
 	github.com/antlr4-go/antlr/v4 v4.13.1 // indirect
 	github.com/sergeymakinen/go-bmp v1.0.0 // indirect
 	github.com/stephenafamo/sqlparser v0.0.0-20250521201114-5cfed001272d // indirect
+	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
 
 require (
