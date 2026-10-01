@@ -213,6 +213,57 @@ Requests aus.
 
 ---
 
+## 7b · Windows-Installer unter Linux bauen (Cross-Build)
+
+Die Tauri-CLI verweigert `--bundles nsis` auf Nicht-Windows-Hosts, der Bundler-Code
+unterstützt es aber. `packaging/windows/render_nsis_linux.py` rendert das originale
+Tauri-NSIS-Template (inkl. `templates/nsis/install_hooks.nsh` für Dienst, Treiber und
+Intel-Daten) und ruft `makensis` auf.
+
+```bash
+# Toolchain
+sudo apt install nsis mingw-w64 lld llvm
+curl https://sh.rustup.rs -sSf | sh -s -- -y -t x86_64-pc-windows-gnu
+# tauri-cli 2.2.7 (prebuilt): https://github.com/tauri-apps/tauri/releases/tag/tauri-cli-v2.2.7
+
+# 1. Frontend
+cd desktop/angular && npm ci && npm run build && NODE_ENV=production npx ng build --configuration production tauri-builtin
+(cd dist && zip -r ../../../dist/binary/all/portmaster.zip ./ -x "tauri-builtin/*")
+(cd ../../assets/data && zip -r -9 -X ../../dist/binary/all/assets.zip *)
+
+# 2. Core (Upstream-Konvention: CGO_ENABLED=0)
+CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -trimpath \
+  -ldflags="-X github.com/safing/portmaster/base/info.version=<ver> ..." \
+  -o dist/binary/windows_amd64/portmaster-core.exe ./cmds/portmaster-core
+
+# 3. Signierter Kext + core.dll aus dem Upstream-Stable, Intel-Daten
+go build -o /tmp/updatemgr ./cmds/updatemgr
+/tmp/updatemgr download https://updates.safing.io/stable.v3.json --platform windows_amd64 dist/downloaded/windows_amd64
+/tmp/updatemgr download https://updates.safing.io/intel.v3.json dist/intel
+
+# 4. Tauri-UI (portmaster.exe + WebView2Loader.dll)
+cd desktop/tauri/src-tauri && cargo tauri build --ci --target x86_64-pc-windows-gnu --no-bundle
+
+# 5. Dateien bereitstellen und Installer bauen
+mkdir -p binary intel
+cp ../../../dist/downloaded/windows_amd64/{portmaster-kext.sys,portmaster-core.dll} \
+   ../../../dist/binary/windows_amd64/portmaster-core.exe ../../../dist/binary/all/*.zip \
+   target/x86_64-pc-windows-gnu/release/WebView2Loader.dll binary/
+cp ../../../dist/intel/* intel/
+cd ../../.. && python3 packaging/windows/render_nsis_linux.py <ver>
+# → dist/windows_amd64/portmasterpro_<ver>_x64-setup.exe
+```
+
+Hinweise:
+- Der Kernel-Treiber (`portmaster-kext.sys`) ist unverändert Safings signierter Treiber
+  (Stable 2.2.3, FileVersion 2.1.1.0). Das Split-Tunnel-Feature aus `development`
+  benötigt einen neueren Treiber und bleibt standardmäßig aus (`splittun/enable=false`).
+- Installer und Binaries sind **nicht signiert** → SmartScreen-Warnung beim ersten Start.
+- Der Installer ersetzt eine bestehende Portmaster-Installation (gleicher Dienstname
+  `PortmasterCore`, gleiches Installationsverzeichnis).
+
+---
+
 ## 8 · Vollständiger Check-Ablauf vor dem Merge
 
 Diesen Block einmalig von oben nach unten durchlaufen:
