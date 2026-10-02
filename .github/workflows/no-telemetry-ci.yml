@@ -80,3 +80,32 @@ jobs:
       - name: Reject account API calls in the production bundle
         run: |
           ! grep -lE 'v1/spn/account|v1/account/features' dist/*.js
+
+  tauri-clippy:
+    name: Tauri (Rust) clippy, no warnings
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: desktop/tauri/src-tauri
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq --no-install-recommends \
+            libsoup-3.0-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev libgtk-3-dev
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/tauri/src-tauri -> target
+          key: clippy-linux
+      - name: Create empty UI dist so the build script is satisfied
+        run: mkdir -p ../../angular/dist/tauri-builtin
+      - name: Clippy (all targets, deny warnings)
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Reject SPN leftovers in the tray/UI shell
+        run: |
+          ! grep -rnE 'spn_toggle|set_spn_enabled|SPNStatus|models::spn' src
