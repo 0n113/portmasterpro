@@ -12,6 +12,11 @@ mod service;
 #[cfg(target_os = "linux")]
 mod xdg;
 
+// Linux-only workarounds for WebKitGTK/NVIDIA/Wayland crashes.
+// Kept in its own module so it can be adjusted or removed independently.
+#[cfg(target_os = "linux")]
+mod linux_graphics_workarounds;
+
 // App modules
 mod cli;
 mod config;
@@ -87,21 +92,21 @@ impl portmaster::Handler for WsHandler {
 
         // Hide splash screen. Will be closed after main window is created.
         if let Err(err) = hide_splash_window(&self.handle) {
-            error!("failed to close splash window: {}", err.to_string());
+            error!("failed to close splash window: {}", err);
         }
 
         // create the main window now. It's not automatically visible by default.
         // Rather, the angular application will show the window itself when it finished
         // bootstrapping.
         if let Err(err) = create_main_window(&self.handle) {
-            error!("failed to create main window: {}", err.to_string());
+            error!("failed to create main window: {}", err);
         } else {
             debug!("created main window")
         }
 
         // Now it is safe to destroy the splash window.
         if let Err(err) = close_splash_window(&self.handle) {
-            error!("failed to close splash window: {}", err.to_string());
+            error!("failed to close splash window: {}", err);
         }
 
         // Cancel the previous tray handler task if it exists
@@ -158,6 +163,12 @@ fn show_webview_not_installed_dialog() -> i32 {
 }
 
 fn main() {
+    // Must run first: adjusts the process environment before any GTK/EGL/WebKit
+    // initialisation and before any thread exists. The logger is not ready yet,
+    // so the returned messages are logged from the setup hook below.
+    #[cfg(target_os = "linux")]
+    let graphics_workaround_messages = linux_graphics_workarounds::apply();
+
     relaunch::run_relaunch_helper_if_requested();
 
     if tauri::webview_version().is_err() {
@@ -238,6 +249,11 @@ fn main() {
         ])
         // Setup the app an any listeners
         .setup(move |app| {
+            #[cfg(target_os = "linux")]
+            for msg in &graphics_workaround_messages {
+                info!("{}", msg);
+            }
+
             setup_tray_menu(app)?;
             portmaster::setup(app.handle().clone());
             // Setup the single-instance event listener that will create/focus the main window
@@ -311,7 +327,7 @@ fn main() {
                     if let Some(window) = handle.get_webview_window(label.as_str()) {
                         let result = window.emit("exit-requested", "");
                         if let Err(err) = result {
-                            error!("failed to emit event: {}", err.to_string());
+                            error!("failed to emit event: {}", err);
                         }
                     } else {
                         error!("window was None");

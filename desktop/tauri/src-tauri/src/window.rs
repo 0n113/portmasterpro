@@ -48,7 +48,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
                     debug!("[tauri] blocking navigation to about:blank");
                     return false;
                 }
-                return true;
+                true
             })
             .build();
 
@@ -76,7 +76,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
                 win
             }
             Err(err) => {
-                error!("[tauri] failed to create main window: {}", err.to_string());
+                error!("[tauri] failed to create main window: {}", err);
 
                 return Err(err);
             }
@@ -92,7 +92,7 @@ pub fn create_main_window(app: &AppHandle) -> Result<WebviewWindow> {
         debug!("[tauri] TAURI_SHOW_IMMEDIATELY is set, opening window");
 
         if let Err(err) = window.show() {
-            error!("[tauri] failed to show window: {}", err.to_string());
+            error!("[tauri] failed to show window: {}", err);
         }
     }
 
@@ -140,17 +140,7 @@ pub fn hide_splash_window(app: &AppHandle) -> Result<()> {
 }
 
 pub fn set_window_icon(window: &WebviewWindow) {
-    let mut mode = if let Ok(value) = traymenu::USER_THEME.read() {
-        *value
-    } else {
-        dark_light::Mode::Unspecified
-    };
-
-    if mode == dark_light::Mode::Unspecified {
-        mode = dark_light::detect().unwrap_or(dark_light::Mode::Dark);
-    }
-
-    let _ = match mode {
+    let _ = match traymenu::get_theme_mode() {
         dark_light::Mode::Light => window.set_icon(Image::from_bytes(DARK_PM_ICON).unwrap()),
         _ => window.set_icon(Image::from_bytes(LIGHT_PM_ICON).unwrap()),
     };

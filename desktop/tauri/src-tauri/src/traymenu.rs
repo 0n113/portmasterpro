@@ -62,11 +62,20 @@ const PAUSE_INFO_TIME_KEY: &str = "pause_info_time";
 
 // Icons
 
-fn get_theme_mode() -> dark_light::Mode {
-    if let Ok(value) = USER_THEME.read() {
-        return *value.deref();
+/// Returns the icon theme to use: the user's choice, or the detected OS
+/// theme when the user chose "System".
+pub(crate) fn get_theme_mode() -> dark_light::Mode {
+    let mode = if let Ok(value) = USER_THEME.read() {
+        *value.deref()
+    } else {
+        dark_light::Mode::Unspecified
+    };
+
+    // "System" is stored as Unspecified: detect the current OS theme.
+    if mode == dark_light::Mode::Unspecified {
+        return dark_light::detect().unwrap_or(dark_light::Mode::Dark);
     }
-    dark_light::detect().unwrap_or(dark_light::Mode::Unspecified)
+    mode
 }
 
 fn get_green_icon() -> &'static [u8] {
@@ -245,7 +254,7 @@ fn build_tray_menu(
         .items(&items)
         .build()?;
 
-    return Ok(menu);
+    Ok(menu)
 }
 
 pub fn setup_tray_menu(
@@ -286,11 +295,11 @@ pub fn setup_tray_menu(
                     Ok(mut win) => {
                         may_navigate_to_ui(&mut win, true);
                         if let Err(err) = win.show() {
-                            error!("[tauri] failed to show window: {}", err.to_string());
+                            error!("[tauri] failed to show window: {}", err);
                         };
                     }
                     Err(err) => {
-                        error!("[tauri] failed to create main window: {}", err.to_string());
+                        error!("[tauri] failed to create main window: {}", err);
                     }
                 };
             }
@@ -355,7 +364,7 @@ pub fn update_icon(icon: AppIcon, system_status: SystemStatus) {
     // Rebuild and set the tray menu
     if let Ok(menu) = build_tray_menu(icon.app_handle(), status, &pause_info) {
         if let Err(err) = icon.set_menu(Some(menu)) {
-            error!("failed to set menu on tray icon: {}", err.to_string());
+            error!("failed to set menu on tray icon: {}", err);
         }
     }
 
@@ -497,7 +506,7 @@ pub fn update_icon_nostate(icon: AppIcon) {
 
     if let Ok(menu) = build_tray_menu(icon.app_handle(), "unknown", &system_status_types::PauseInfo::default()) {
         if let Err(err) = icon.set_menu(Some(menu)) {
-            error!("failed to set menu on tray icon: {}", err.to_string());
+            error!("failed to set menu on tray icon: {}", err);
         }
     }
 }
