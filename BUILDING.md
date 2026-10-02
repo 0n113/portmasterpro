@@ -300,6 +300,8 @@ cd desktop/angular && npm ci && npm run build
 ```
 
 Wenn alle Schritte ohne Fehler und ohne "FUND!" durchlaufen → Branch ist merge-ready.
+Für ein Release zusätzlich die Checkliste in `RELEASE.md` abarbeiten; ein Tag `vX.Y.Z[-rcN]`
+erzeugt das GitHub-Release mit Installer und Checksummen automatisch (`release-windows-installer.yml`).
 
 ---
 
